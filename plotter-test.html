@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Validation for plotter.js</title>
+    <script src="js/plotter.js"></script>
+  </head>
+  <body>
+    <canvas id="target" width="400" height="400"></canvas>
+    <canvas id="target2" width="400" height="400"></canvas>
+  </body>
+  <script>
+
+    var c = document.getElementById('target');
+    var p = new ZappemNet.Plotter();
+    p.BindToCanvas(c, 10);
+    var triangle = [[100, 100], [500,100], [300,400], [100, 100]];
+    for (var i = 0; i<8; i+=.7) {
+      var pts = [];
+      for (var j = 0; j < triangle.length; j++) {
+	pts.push([i*triangle[j][0]-i*120, -30*i+i*triangle[j][1]]);
+      }
+      p.Line(pts);
+    }
+    p.Line([[400,10], [400,1100], [420,10], [420,1110], [440,10], [440,800]]);
+    p.Marks([[100,130,30], [200,140,20]], 2, 2)
+    p.Marks([[300,130,30], [400,140,20]], 0, 2)
+    p.Marks([[500,130,30], [600,140,20]], 2, 0)
+    p.Frame();
+
+    c = document.getElementById('target2');
+    p = new ZappemNet.Plotter();
+    p.BindToCanvas(c, 15);
+    var pts = [];
+    for (var a = 0; a < 360*4; a+=10) {
+      var th = a*Math.PI/180;
+      var cs = Math.cos(th);
+      var sn = Math.sin(th);
+      pts.push([a, sn, 30*sn*sn, .1*cs*cs]);
+    }
+
+    var bb = p.Bounds(pts, 2, 3);
+    var dx = bb[1]-bb[0];
+    p.CoordMaxX = bb[1] + .05*dx;
+    p.CoordMinX = bb[0] - .05*dx;
+    var dy = bb[3]-bb[2];
+    p.CoordMaxY = bb[3] + .05*dy;
+    p.CoordMinY = bb[2] - .05*dy;
+    p.Marks(pts, 2, 3);
+    p.Frame();
+
+  </script>
+
+</html>
