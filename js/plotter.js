@@ -14,7 +14,9 @@ ZappemNet.Plotter = function() {
   this.overrideLine = null;
 
   // attributes for plotting.
-  this.attr = {};
+  this.attr = {
+    fontSize: 10
+  };
 
   // Output coordinates
   this.MinX = 0;
@@ -59,14 +61,14 @@ ZappemNet.Plotter.prototype.OutputLine = function(coords) {
 };
 
 // BindToCanvas forces the Plotter to associate with a canvas element.
-// The margin_opt, in pixels, value (if provided) will be stored in
+// The opt_margin, in pixels, value (if provided) will be stored in
 // the Plotter .attr.margin value. If the canvas dimension is
 // insufficient to maintain 3x this margin, the margin is ignored.
-ZappemNet.Plotter.prototype.BindToCanvas = function(element, margin_opt) {
-  if (margin_opt != null) {
-    this.attr.margin = margin_opt;
+ZappemNet.Plotter.prototype.BindToCanvas = function(element, opt_margin) {
+  if (opt_margin != null) {
+    this.attr.margin = opt_margin;
   }
-  var m = this.attr.margin;
+  var m = this.attr.margin || 0;
   var w = element.width;
   var h = element.height;
   var mx = m;
@@ -123,9 +125,10 @@ function clip(dx, dy, pt, minX, maxX, minY, maxY) {
   return pt;
 }
 
-ZappemNet.Plotter.prototype.onXY = function(pt) {
-  return (pt[0] >= this.CoordMinX) && (pt[0] <= this.CoordMaxX)
-    && (pt[1] >= this.CoordMinY) && (pt[1] <= this.CoordMaxY);
+ZappemNet.Plotter.prototype.onXY = function(pt, opt_tol) {
+  var tol = opt_tol == null ? 0 : Math.abs(opt_tol);
+  return (pt[0] >= this.CoordMinX-tol) && (pt[0] <= this.CoordMaxX+tol)
+    && (pt[1] >= this.CoordMinY-tol) && (pt[1] <= this.CoordMaxY+tol);
 }
 
 // Line renders a line on the graph. It culls line segments for points off
@@ -182,33 +185,6 @@ ZappemNet.Plotter.prototype.Line = function(pts) {
   }
 };
 
-// Return the [minX, maxX, minY, maxY] values including any error
-// contributions for a data set. The xer and yer values are column
-// indices into the rows of pts, or 0|null in the case of no errors.
-ZappemNet.Plotter.prototype.Bounds = function(pts, xer, yer) {
-  var box = [0,0,1000,1000];
-  if (pts != null) {
-    for (var i = 0; i < pts.length; i++) {
-      var pt = pts[i];
-      var dx = xer ? pt[xer] : 0;
-      if (i==0 || (pt[0]-dx < box[0])) {
-        box[0] = pt[0]-dx;
-      }
-      if (i==0 || (pt[0]+dx > box[1])) {
-        box[1] = pt[0]+dx;
-      }
-      var dy = yer ? pt[yer] : 0;
-      if (i==0 || (pt[1]-dy < box[2])) {
-        box[2] = pt[1]-dy;
-      }
-      if (i==0 || (pt[1]+dy > box[3])) {
-        box[3] = pt[1]+dy;
-      }
-    }
-  }
-  return box;
-};
-
 // Places a mark (optionally) with x/y error bars on the Plotter.
 ZappemNet.Plotter.prototype.Mark = function(x, y, xer, yer) {
   if (!this.onXY([x,y])) {
@@ -240,6 +216,7 @@ ZappemNet.Plotter.prototype.Mark = function(x, y, xer, yer) {
   this.attr.ctx.lineWidth = w0;
 };
 
+// Place a series of marks with (optional) x/y error bars.
 ZappemNet.Plotter.prototype.Marks = function(pts, xers, yers) {
   if (pts == null) {
     return;
@@ -251,4 +228,224 @@ ZappemNet.Plotter.prototype.Marks = function(pts, xers, yers) {
     var ye = yers ? pts[i][yers] : null;
     this.Mark(x, y, xe, ye);
   }
+};
+
+// These values are for use with Axis manipulation.
+ZappemNet.Plotter.X0 = 1;
+ZappemNet.Plotter.X1 = 2;
+ZappemNet.Plotter.Y0 = 3;
+ZappemNet.Plotter.Y1 = 4;
+
+// Reframe adjusts the specified axis range to accommodate the column
+// of the pts dataset.
+ZappemNet.Plotter.prototype.Reframe = function(reset, direction, pts, col, col_er) {
+  if (pts == null || pts.length == 0) {
+    return;
+  }
+  box = [0,0];
+  for (var i=0; i<pts.length; i++) {
+      var pt = pts[i];
+      var d = col_er ? pt[col_er] : 0;
+    if (i==0 || (pt[col]-d < box[0])) {
+      box[0] = pt[col]-d;
+    }
+    if (i==0 || (pt[col]+d > box[1])) {
+      box[1] = pt[col]+d;
+    }
+  }
+  switch (direction) {
+  case ZappemNet.Plotter.X0:
+  case ZappemNet.Plotter.X1:
+    if (reset || (box[0] < this.CoordMinX)) {
+      this.CoordMinX = box[0];
+    }
+    if (reset || (box[1] > this.CoordMaxX)) {
+      this.CoordMaxX = box[1];
+    }
+    break;
+  case ZappemNet.Plotter.Y0:
+  case ZappemNet.Plotter.Y1:
+    if (reset || (box[0] < this.CoordMinY)) {
+      this.CoordMinY = box[0];
+    }
+    if (reset || (box[1] > this.CoordMaxY)) {
+      this.CoordMaxY = box[1];
+    }
+    break;
+  default:
+    return;
+  }
+};
+
+// Axis draws an axis line from an array of tics. Each position
+// has: [offset, bool (large=true), label]. The direction parameter
+// indicates which axis we are rendering. The opt_at value is the
+// axis alignment coordinate. If it is not present, the direction
+// parameter default prevails.
+ZappemNet.Plotter.prototype.Axis = function(direction, tics, opt_at) {
+  var oDX = 0;
+  var oDY = 0;
+  var oX;
+  var oY;
+  var fDX = 0;
+  var fDY = 0;
+  var x = null;
+  var y = null;
+
+  var ctx = this.attr.ctx;
+  var oFont = ctx.font;
+  ctx.font = `${this.attr.fontSize}px sans-serif`;
+  var oAlign = ctx.textAlign;
+  var oBaseline = ctx.textBaseline;
+
+  switch (direction) {
+  case ZappemNet.Plotter.X0:
+    oDY = 1;
+    fDY = 1.1 * this.attr.fontSize + 3;
+    y = opt_at == null ? this.CoordMinY : opt_at;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    break;
+  case ZappemNet.Plotter.X1:
+    oDY = -1;
+    fDY = -(1.1 * this.attr.fontSize + 3);
+    y = opt_at == null ? this.CoordMaxY : opt_at;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    break;
+  case ZappemNet.Plotter.Y0:
+    oDX = -1;
+    fDX = -10;
+    x = opt_at == null ? this.CoordMinX : opt_at;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    break;
+  case ZappemNet.Plotter.Y1:
+    oDX = 1;
+    fDX = 10;
+    x = opt_at == null ? this.CoordMaxX : opt_at;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    break;
+  default:
+    console.log('unrecognized axis direction: '+direction);
+    ctx.font = oFont;
+    ctx.textAlign = oAlign;
+    ctx.textBaseline = oBaseline;
+    return;
+  }
+  if (tics == null || tics.length == 0) {
+    ctx.font = oFont;
+    ctx.textAlign = oAlign;
+    ctx.textBaseline = oBaseline;
+    return;
+  }
+  var ow = ctx.lineWidth;
+  var bx = (this.MaxX-this.MinX)/(this.CoordMaxX-this.CoordMinX);
+  var by = (this.MaxY-this.MinY)/(this.CoordMaxY-this.CoordMinY);
+  var tol = Math.min(Math.abs(1/bx), Math.abs(1/by))*.5;
+  for (var i = 0; i < tics.length; i++) {
+    var tic = tics[i];
+    if (x != null) {
+      oX = this.MinX+bx*(x-this.CoordMinX);
+      if (i == 0) {
+        this.OutputLine([[oX, this.MinY], [oX, this.MaxY]]);
+      }
+      if (!this.onXY([x, tic[0]], tol)) {
+        continue;
+      }
+      oY = this.MinY+by*(tic[0]-this.CoordMinY);
+    } else {
+      oY = this.MinY+by*(y-this.CoordMinY);
+      if (i == 0) {
+        this.OutputLine([[this.MinX, oY], [this.MaxX, oY]]);
+      }
+      if (!this.onXY([tic[0], y], tol)) {
+        continue;
+      }
+      oX = this.MinX+bx*(tic[0]-this.CoordMinX);
+    }
+    var mul = tic[1] ? 6 : 3;
+    this.OutputLine([[oX, oY], [oX+mul*oDX, oY+mul*oDY]]);
+    if (tic[2] != null) {
+      ctx.fillText(tic[2], oX+fDX, oY+fDY);
+    }
+  }
+  ctx.lineWidth = ow;
+  ctx.font = oFont;
+  ctx.textAlign = oAlign;
+  ctx.textBaseline = oBaseline;
+};
+
+// AutoTics returns a list of tic values for the specified
+// direction. It pad is true, then once the major tics are identified,
+// the range for this axis will be padded to start and end with a
+// major tic. A return value of null indicates that tic values are not
+// knowable.
+ZappemNet.Plotter.prototype.AutoTics = function(direction, pad) {
+  var range = null;
+  switch (direction) {
+  case ZappemNet.Plotter.X0:
+  case ZappemNet.Plotter.X1:
+    range = [this.CoordMinX, this.CoordMaxX];
+    break;
+  case ZappemNet.Plotter.Y0:
+  case ZappemNet.Plotter.Y1:
+    range = [this.CoordMinY, this.CoordMaxY];
+    break;
+  default:
+    return range;
+  }
+  if (range[0] == range[1]) {
+    if (!pad) {
+      return null;
+    }
+    if (range[0] == 0) {
+      range[0] = -1;
+      range[1] = 1;
+    } else {
+      var d = range[0];
+      range[0] -= d/20;
+      range[1] += d/20;
+    }
+  } else {
+      let d = range[1]-range[0];
+      range[0] -= d/20;
+      range[1] += d/20;
+  }
+  var d = range[1]-range[0];
+  var n = Math.pow(10, Math.round(Math.log10(Math.abs(d))));
+  if (pad) {
+    var low = Math.floor(range[0]/n)*n;
+    if (range[0] != low) {
+      range[0] = low;
+    }
+    var high = Math.floor(range[1]/n)*n;
+    if (range[1] != high) {
+      range[1] = high+n;
+    }
+  }
+  if (pad) {
+    switch (direction) {
+    case ZappemNet.Plotter.X0:
+    case ZappemNet.Plotter.X1:
+      this.CoordMinX = range[0];
+      this.CoordMaxX = range[1];
+      break;
+    case ZappemNet.Plotter.Y0:
+    case ZappemNet.Plotter.Y1:
+      this.CoordMinY = range[0];
+      this.CoordMaxY = range[1];
+      break;
+    default:
+      return range;
+    }
+  }
+  var tic = 0.1*n;
+  var tics = [];
+  for (var from=Math.round(range[0]/tic)*tic; from <= range[1]+0.5*tic; from += tic) {
+    var major = (10*Math.round(from/n) == Math.round(from/tic));
+    tics.push([from, major, major ? Math.round(from/tic)*tic : null]);
+  }
+  return tics;
 };

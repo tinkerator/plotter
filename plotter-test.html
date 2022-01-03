@@ -29,7 +29,7 @@
 
     c = document.getElementById('target2');
     p = new ZappemNet.Plotter();
-    p.BindToCanvas(c, 15);
+    p.BindToCanvas(c, 20);
     var pts = [];
     for (var a = 0; a < 360*4; a+=10) {
       var th = a*Math.PI/180;
@@ -38,13 +38,23 @@
       pts.push([a, sn, 30*sn*sn, .1*cs*cs]);
     }
 
-    var bb = p.Bounds(pts, 2, 3);
-    var dx = bb[1]-bb[0];
-    p.CoordMaxX = bb[1] + .05*dx;
-    p.CoordMinX = bb[0] - .05*dx;
-    var dy = bb[3]-bb[2];
-    p.CoordMaxY = bb[3] + .05*dy;
-    p.CoordMinY = bb[2] - .05*dy;
+    var dx = p.CoordMaxX - p.CoordMinX;
+    p.CoordMaxX += .05*dx;
+    p.CoordMinX -= .05*dx;
+    var dy = p.CoordMaxY - p.CoordMinY;
+    p.CoordMaxY += .05*dy;
+    p.CoordMinY -= .05*dy;
+
+    p.Reframe(true, ZappemNet.Plotter.X0, pts, 0, 2);
+    var xts = p.AutoTics(ZappemNet.Plotter.X0, true);
+    p.Reframe(true, ZappemNet.Plotter.Y0, pts, 1, 3);
+    var yts = p.AutoTics(ZappemNet.Plotter.Y0, true);
+
+    p.Axis(ZappemNet.Plotter.X0, xts);
+    p.Axis(ZappemNet.Plotter.X1, xts);
+    p.Axis(ZappemNet.Plotter.Y0, yts);
+    p.Axis(ZappemNet.Plotter.Y1, yts);
+
     p.Marks(pts, 2, 3);
     p.Frame();
 
