@@ -2,11 +2,22 @@
 
 ## Overview
 
-This is a minimal frills JavaScript canvas numerical data plotting package.
+This is a minimal frills JavaScript canvas numerical data plotting
+package.
+
+We include a minimal webserver `web.go` (adapted from the
+[`http.FileServer` example](https://pkg.go.dev/net/http#FileServer))
+to explore hosted content. On your workstation, type:
+```
+$ go run web.go
+```
+and point your web browser at http://localhost:8080 . The
+http://localhost:8080/plotter-test.html file provides a demo of
+supported features.
 
 ## Features currently lacking (but planned)
 
-- text labels
+- text, on plot, labels
 
 ## Validation
 
