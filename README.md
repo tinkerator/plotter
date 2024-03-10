@@ -21,7 +21,8 @@ supported features.
 
 ## Validation
 
-We include a sanity checking plotter-test.html file. This demostrates:
+We include a sanity checking http://localhost:8080/plotter-test.html
+file. This demostrates:
 
 - binding the plotter to a canvas element
 - lines with clipping
@@ -30,6 +31,11 @@ We include a sanity checking plotter-test.html file. This demostrates:
 - axes with tick marks
   - manually computed and labeled
   - automatically computed
+
+The above example generates two plotted images:
+
+![Generated example.png image](example.png "left plot")
+![Generated example2.png image](example2.png "right plot")
 
 ## License info
 
