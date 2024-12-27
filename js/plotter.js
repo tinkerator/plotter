@@ -131,11 +131,19 @@ ZappemNet.Plotter.prototype.onXY = function(pt, opt_tol) {
     && (pt[1] >= this.CoordMinY-tol) && (pt[1] <= this.CoordMaxY+tol);
 }
 
-// Line renders a line on the graph. It culls line segments for points off
-// the graph active area.
-ZappemNet.Plotter.prototype.Line = function(pts) {
+// Line renders a line on the graph. It culls line segments for points
+// off the graph active area. If the optional x and y arguments are
+// supplied they refer to the x and y column in the pts data. The
+// default values for x and y are 0 and 1 respectively.
+ZappemNet.Plotter.prototype.Line = function(pts, xi, yi) {
   if (pts == null) {
     return;
+  }
+  if (xi == null) {
+    xi = 0;
+  }
+  if (yi == null) {
+    yi = 1;
   }
   var last = null;
   var replot = true;
@@ -144,7 +152,7 @@ ZappemNet.Plotter.prototype.Line = function(pts) {
   var coords = [];
   for (var i = 0; i < pts.length; i++) {
     var pt = pts[i];
-    var cXY = [pt[0], pt[1]];
+    var cXY = [pt[xi], pt[yi]];
     if (last == null) {
       last = pt;
       continue;
